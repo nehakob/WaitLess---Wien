@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WaitLess Wien — Praxis-Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Auth guard: practice role only -->
+    <script>
+        (function() {
+            const token = localStorage.getItem('wl_token');
+            if (!token) { window.location.replace('/login.html'); return; }
+            const user = JSON.parse(localStorage.getItem('wl_user') || '{}');
+            if (user.role === 'patient') { window.location.replace('/portal.html'); }
+            window._wlUser = user;
+        })();
+    </script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        praxis: {
+                            50:  '#EDF9FA',
+                            100: '#B8E8E8',
+                            200: '#9ADADA',
+                            300: '#7DCCCC',
+                            400: '#5BB8B8',
+                            500: '#5BB8B8',
+                            600: '#3FA5A0',
+                            700: '#2A8090',
+                            800: '#1E6A7A',
+                            900: '#155A6A',
+                            950: '#0C3845',
+                        }
+                    },
+                    fontFamily: { sans: ['Plus Jakarta Sans','Inter','sans-serif'] },
+                    boxShadow: { card: '0 4px 20px -4px rgba(30,106,122,0.10), 0 2px 8px -2px rgba(30,106,122,0.06)' }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes toastIn { from { transform:translateY(-16px) scale(.96); opacity:0; } to { transform:translateY(0) scale(1); opacity:1; } }
+        .animate-toast { animation: toastIn .3s cubic-bezier(.16,1,.3,1) forwards; }
+        @keyframes pulse { 0%,100%{opacity:.9;transform:scale(1)} 50%{opacity:.35;transform:scale(1.15)} }
+        .pulse-dot { animation: pulse 2s infinite ease-in-out; }
+    </style>
+</head>
+<body class="bg-praxis-800 min-h-screen flex items-center justify-center sm:py-4 antialiased text-slate-800">
+
+    <!-- Toast -->
+    <div id="toastContainer" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-md pointer-events-none space-y-2"></div>
+
+    <!-- App Shell -->
+    <div class="w-full max-w-md min-h-screen sm:min-h-0 sm:h-[92vh] bg-praxis-50 sm:rounded-[28px] sm:border-4 sm:border-praxis-900 shadow-2xl flex flex-col overflow-hidden">
+
+        <!-- HEADER -->
+        <header class="bg-praxis-800 text-white px-4 pt-4 pb-3 shrink-0">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-praxis-700 border border-praxis-600 flex items-center justify-center shrink-0">
+                        <svg viewBox="0 0 100 100" class="w-6 h-6">
+                            <circle cx="50" cy="50" r="38" fill="none" stroke="#7DCCCC" stroke-width="5"/>
+                            <path d="M 44 38 H 56 V 44 H 62 V 56 H 56 V 62 H 44 V 56 H 38 V 44 H 44 Z" fill="none" stroke="#DDF4F5" stroke-width="4" stroke-linejoin="round"/>
+                            <path d="M 20 62 C 22 32, 48 18, 76 22" fill="none" stroke="#7DCCCC" stroke-width="6" stroke-linecap="round"/>
+                            <path d="M 66 14 L 80 22 L 72 35 Z" fill="#7DCCCC"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-[9px] font-bold text-praxis-300 uppercase tracking-widest">WaitLess Wien · Praxis-Dashboard</p>
+                        <h1 class="font-black text-base leading-tight text-white" id="headerPraxisName">Dr. Sabine Holzer</h1>
+                    </div>
+                </div>
+                <button onclick="logout()" class="w-8 h-8 rounded-xl bg-praxis-700 hover:bg-praxis-600 flex items-center justify-center text-praxis-300 hover:text-white transition">
+                    <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                </button>
+            </div>
+
+            <!-- Live status bar -->
+            <div class="bg-praxis-900/60 rounded-2xl px-3 py-2 flex items-center justify-between text-xs">
+                <span class="flex items-center gap-1.5 font-bold text-emerald-400">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span>
+                    Live aktiv
+                </span>
+                <span class="text-praxis-300 font-semibold">Allgemeinmedizin · Wien 5. · Alle Kassen</span>
+            </div>
+        </header>
+
+        <!-- NAV TABS -->
+        <div class="bg-white border-b border-praxis-200 flex shrink-0">
+            <button onclick="showTab('uebersicht')" id="tab-uebersicht"
+                class="tab-btn flex-1 py-3 text-xs font-extrabold flex flex-col items-center gap-0.5 text-praxis-700 border-b-2 border-praxis-700">
+                <i class="fa-solid fa-house-chimney text-base"></i>Übersicht
+            </button>
+            <button onclick="showTab('anfragen')" id="tab-anfragen"
+                class="tab-btn flex-1 py-3 text-xs font-semibold text-slate-400 flex flex-col items-center gap-0.5 border-b-2 border-transparent relative">
+                <i class="fa-solid fa-bell text-base"></i>Anfragen
+                <span id="anfragenBadge" class="hidden absolute top-1.5 right-1/4 min-w-[16px] h-4 px-1 rounded-full bg-praxis-700 text-white text-[9px] font-black flex items-center justify-center"></span>
+            </button>
+            <button onclick="showTab('warteschlange')" id="tab-warteschlange"
+                class="tab-btn flex-1 py-3 text-xs font-semibold text-slate-400 flex flex-col items-center gap-0.5 border-b-2 border-transparent">
+                <i class="fa-solid fa-list-ol text-base"></i>Warteschlange
+            </button>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 overflow-y-auto no-scrollbar pb-4">
+
+            <!-- TAB: ÜBERSICHT -->
+            <div id="sec-uebersicht" class="p-4 space-y-3">
+
+                <!-- Kopfzeile -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider" id="todayDate"></p>
+                        <h2 class="font-black text-base text-praxis-800" id="greetingText">Guten Morgen, Dr. Holzer</h2>
+                    </div>
+                    <div id="openStatusBadge" class="text-[11px] font-extrabold px-3 py-1.5 rounded-xl border"></div>
+                </div>
+
+                <!-- Stats -->
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="bg-white rounded-2xl border border-praxis-200 shadow-card p-3 text-center">
+                        <span class="text-2xl font-black text-praxis-800 block leading-none" id="statWaiting">3</span>
+                        <span class="text-[10px] text-slate-400 font-bold mt-0.5 block">Wartende</span>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-praxis-200 shadow-card p-3 text-center">
+                        <span class="text-2xl font-black text-emerald-600 block leading-none" id="statConfirmed">0</span>
+                        <span class="text-[10px] text-slate-400 font-bold mt-0.5 block">Termine</span>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-praxis-200 shadow-card p-3 text-center relative">
+                        <span class="text-2xl font-black text-praxis-800 block leading-none" id="statRequests">0</span>
+                        <span class="text-[10px] text-slate-400 font-bold mt-0.5 block">Anfragen</span>
+                        <span id="pendingDot" class="hidden w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-white absolute top-1.5 right-1.5"></span>
+                    </div>
+                </div>
+
+                <!-- Ausstehende Anfragen Banner -->
+                <div id="pendingBanner" class="hidden bg-praxis-800 rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <i class="fa-solid fa-bell text-praxis-300 text-sm"></i>
+                        <p class="text-white font-extrabold text-sm" id="pendingBannerText">Neue Anfragen</p>
+                    </div>
+                    <button onclick="showTab('anfragen')" class="bg-white/20 hover:bg-white/30 text-white text-xs font-extrabold px-3 py-1.5 rounded-xl transition shrink-0">
+                        Ansehen →
+                    </button>
+                </div>
+
+                <!-- WOCHENKALENDER -->
+                <div class="bg-white rounded-2xl border border-praxis-200 shadow-card overflow-hidden">
+                    <!-- Kalender Header -->
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-praxis-100">
+                        <h3 class="text-xs font-extrabold text-praxis-700 uppercase tracking-wide">Wochenkalender</h3>
+                        <div class="flex items-center gap-2">
+                            <button id="prevWeekBtn" onclick="changeWeek(-1)" class="w-7 h-7 rounded-xl bg-praxis-50 hover:bg-praxis-100 border border-praxis-200 flex items-center justify-center text-praxis-600 transition">
+                                <i class="fa-solid fa-chevron-left text-xs"></i>
+                            </button>
+                            <span class="text-[11px] font-bold text-slate-600" id="weekRangeLabel"></span>
+                            <button id="nextWeekBtn" onclick="changeWeek(1)" class="w-7 h-7 rounded-xl bg-praxis-50 hover:bg-praxis-100 border border-praxis-200 flex items-center justify-center text-praxis-600 transition">
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Kalender Grid -->
+                    <div class="overflow-x-auto no-scrollbar">
+                        <div id="calendarGrid" style="min-width:340px"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: ANFRAGEN -->
+            <div id="sec-anfragen" class="hidden p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-extrabold text-sm text-praxis-800">Eingehende Terminanfragen</h2>
+                    <button onclick="loadRequests()" class="text-[11px] text-praxis-600 font-bold flex items-center gap-1 hover:text-praxis-800 transition">
+                        <i class="fa-solid fa-rotate-right text-xs"></i> Aktualisieren
+                    </button>
+                </div>
+                <div id="requestsList" class="space-y-3"></div>
+                <div id="requestsEmpty" class="hidden bg-white rounded-3xl border border-praxis-200 p-8 text-center space-y-2">
+                    <i class="fa-regular fa-calendar text-3xl text-praxis-300 block"></i>
+                    <p class="font-extrabold text-slate-700">Keine Anfragen</p>
+                    <p class="text-xs text-slate-400">Neue Terminanfragen von Patienten erscheinen hier.</p>
+                </div>
+            </div>
+
+            <!-- TAB: WARTESCHLANGE -->
+            <div id="sec-warteschlange" class="hidden p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-extrabold text-sm text-praxis-800">Aktuelle Warteschlange</h2>
+                    <button id="walkInBtn" onclick="addWalkIn()" class="bg-praxis-700 hover:bg-praxis-800 text-white text-xs font-extrabold px-3 py-2 rounded-xl flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-plus"></i> Walk-in
+                    </button>
+                </div>
+                <!-- Geschlossen-Hinweis -->
+                <div id="closedQueueBanner" class="hidden bg-slate-100 border border-slate-300 rounded-2xl px-4 py-3 flex items-center gap-3">
+                    <i class="fa-solid fa-door-closed text-slate-400 text-lg shrink-0"></i>
+                    <div>
+                        <p class="font-extrabold text-slate-600 text-sm">Ordination derzeit geschlossen</p>
+                        <p class="text-[11px] text-slate-400 font-medium">Aktionen sind nur während der Öffnungszeiten verfügbar.</p>
+                    </div>
+                </div>
+                <div id="queueList" class="space-y-2.5"></div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // ── Practice data ──────────────────────────────────────────────────────
+        const PRACTICE_DOC_ID = 500; // Dr. Sabine Holzer's ID in portal.html doctorsData
+        const PRACTICE_DOC_NAME = 'Dr. Sabine Holzer';
+
+        let queue = JSON.parse(localStorage.getItem('wl_b2b_queue') || 'null') || [
+            { id: 1, name: 'Maria M.', ticket: '#T-101', status: 'waiting', wait: '~ 8 Min.', note: 'App-Termin' },
+            { id: 2, name: 'Peter H.', ticket: '#T-102', status: 'waiting', wait: '~ 20 Min.', note: 'Vor Ort' },
+            { id: 3, name: 'Stefan K.', ticket: '#T-103', status: 'waiting', wait: '~ 32 Min.', note: 'e-card Check-in' },
+        ];
+
+        // ── Toast ──────────────────────────────────────────────────────────────
+        function showToast(msg, icon = 'fa-circle-check', color = 'text-emerald-400') {
+            const c = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            t.className = 'bg-praxis-900/95 text-white px-4 py-3 rounded-2xl shadow-2xl border border-praxis-700 flex items-center gap-3 pointer-events-auto animate-toast text-sm font-semibold backdrop-blur';
+            t.innerHTML = `<i class="fa-solid ${icon} ${color} text-base shrink-0"></i><span>${msg}</span>`;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3500);
+        }
+
+        // ── Tab switching ──────────────────────────────────────────────────────
+        function showTab(name) {
+            ['uebersicht','anfragen','warteschlange'].forEach(t => {
+                document.getElementById('sec-' + t).classList.add('hidden');
+                const btn = document.getElementById('tab-' + t);
+                btn.classList.remove('text-praxis-700', 'border-praxis-700', 'font-extrabold');
+                btn.classList.add('text-slate-400', 'border-transparent', 'font-semibold');
+            });
+            document.getElementById('sec-' + name).classList.remove('hidden');
+            const active = document.getElementById('tab-' + name);
+            active.classList.add('text-praxis-700', 'border-praxis-700', 'font-extrabold');
+            active.classList.remove('text-slate-400', 'border-transparent', 'font-semibold');
+
+            if (name === 'anfragen') loadRequests();
+            if (name === 'warteschlange') renderQueue();
+        }
+
+        // ── Requests (reads from shared localStorage) ─────────────────────────
+        function loadRequests() {
+            const all = JSON.parse(localStorage.getItem('wl_all_requests') || '[]');
+            const mine = all.filter(r => r.docId === PRACTICE_DOC_ID || r.docName === PRACTICE_DOC_NAME);
+
+            const badge = document.getElementById('anfragenBadge');
+            const pending = mine.filter(r => r.status === 'pending').length;
+            if (pending > 0) {
+                badge.textContent = pending;
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+            } else {
+                badge.classList.add('hidden');
+                badge.classList.remove('flex');
+            }
+            document.getElementById('statRequests').textContent = mine.length;
+
+            const list = document.getElementById('requestsList');
+            const empty = document.getElementById('requestsEmpty');
+
+            if (mine.length === 0) {
+                list.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+
+            list.innerHTML = mine.map(r => {
+                let statusHtml, actions = '';
+                if (r.status === 'confirmed') {
+                    statusHtml = `<span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-2.5 py-1 rounded-full"><i class="fa-solid fa-circle-check"></i> Bestätigt</span>`;
+                } else if (r.status === 'declined') {
+                    statusHtml = `<span class="inline-flex items-center gap-1 bg-rose-100 text-rose-600 border border-rose-200 text-[10px] font-extrabold px-2.5 py-1 rounded-full"><i class="fa-solid fa-circle-xmark"></i> Abgelehnt</span>`;
+                } else {
+                    statusHtml = `<span class="inline-flex items-center gap-1 bg-praxis-100 text-praxis-700 border border-praxis-200 text-[10px] font-extrabold px-2.5 py-1 rounded-full"><i class="fa-solid fa-clock animate-pulse"></i> Ausstehend</span>`;
+                    actions = `
+                        <div class="flex gap-2 mt-2">
+                            <button onclick="respondRequest(${r.id}, 'confirmed')"
+                                class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition">
+                                <i class="fa-solid fa-check"></i> Bestätigen
+                            </button>
+                            <button onclick="respondRequest(${r.id}, 'declined')"
+                                class="flex-1 bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 font-extrabold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5 border border-slate-200 hover:border-rose-200 transition">
+                                <i class="fa-solid fa-xmark"></i> Ablehnen
+                            </button>
+                        </div>`;
+                }
+                return `
+                <div class="bg-white rounded-3xl border border-praxis-200 shadow-card p-4 space-y-2.5">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-extrabold text-slate-800 text-sm">${r.patientName ?? 'Patient (App)'}</p>
+                            <p class="text-[11px] text-slate-500 font-medium">${r.createdAt ?? ''}</p>
+                        </div>
+                        ${statusHtml}
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="bg-praxis-50 rounded-xl px-3 py-2">
+                            <span class="block text-[10px] text-praxis-500 font-bold uppercase">Wunschtermin</span>
+                            <span class="font-semibold text-slate-700">${r.time}</span>
+                        </div>
+                        <div class="bg-praxis-50 rounded-xl px-3 py-2">
+                            <span class="block text-[10px] text-praxis-500 font-bold uppercase">Kasse</span>
+                            <span class="font-semibold text-slate-700">${r.insurance}</span>
+                        </div>
+                    </div>
+                    ${r.note ? `<p class="text-xs text-slate-500 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100"><i class="fa-regular fa-note-sticky mr-1 text-slate-400"></i>${r.note}</p>` : ''}
+                    ${actions}
+                </div>`;
+            }).join('');
+        }
+
+        function respondRequest(id, newStatus) {
+            const all = JSON.parse(localStorage.getItem('wl_all_requests') || '[]');
+            const idx = all.findIndex(r => r.id === id);
+            if (idx === -1) return;
+            all[idx].status = newStatus;
+            localStorage.setItem('wl_all_requests', JSON.stringify(all));
+            loadRequests();
+            const label = newStatus === 'confirmed' ? 'bestätigt ✓' : 'abgelehnt';
+            showToast(`Anfrage ${label}.`, newStatus === 'confirmed' ? 'fa-circle-check' : 'fa-circle-xmark', newStatus === 'confirmed' ? 'text-emerald-400' : 'text-rose-400');
+        }
+
+        // ── Queue ──────────────────────────────────────────────────────────────
+        function renderQueue() {
+            const list = document.getElementById('queueList');
+            if (queue.length === 0) {
+                list.innerHTML = `<div class="bg-white rounded-2xl border border-praxis-200 p-6 text-center text-slate-400 text-xs"><i class="fa-solid fa-chair text-2xl text-praxis-200 block mb-2"></i>Warteschlange leer.</div>`;
+                return;
+            }
+            const open = window._praxisOpen !== false;
+            list.innerHTML = queue.map((p, i) => `
+                <div class="rounded-2xl border shadow-card px-4 py-3 flex items-center justify-between gap-3 ${open ? 'bg-white border-praxis-200' : 'bg-slate-50 border-slate-200 opacity-60'}">
+                    <div class="flex items-center gap-3">
+                        <span class="font-black px-2.5 py-1.5 rounded-xl text-xs min-w-[48px] text-center ${open ? 'text-praxis-700 bg-praxis-100' : 'text-slate-400 bg-slate-200'}">${p.ticket}</span>
+                        <div>
+                            <p class="font-extrabold text-sm ${open ? 'text-slate-800' : 'text-slate-400'}">${p.name}</p>
+                            <p class="text-[11px] text-slate-400 font-medium">${p.note} · ${p.wait}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        ${i === 0 && open ? `<span class="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-2 py-1 rounded-lg">Nächster</span>` : ''}
+                        <button ${open ? `onclick="callDone(${p.id})"` : 'disabled'} title="${open ? 'Abgeschlossen' : 'Praxis geschlossen'}"
+                            class="w-7 h-7 rounded-xl flex items-center justify-center transition ${open ? 'bg-slate-100 hover:bg-emerald-100 text-slate-400 hover:text-emerald-700' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}">
+                            <i class="fa-solid fa-circle-check text-sm"></i>
+                        </button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function callDone(id) {
+            queue = queue.filter(p => p.id !== id);
+            localStorage.setItem('wl_b2b_queue', JSON.stringify(queue));
+            document.getElementById('statWaiting').textContent = queue.length;
+            renderQueue();
+            showToast('Patient abgeschlossen.', 'fa-circle-check');
+        }
+
+        let walkInCounter = 200;
+        function addWalkIn() {
+            walkInCounter++;
+            const entry = { id: Date.now(), name: 'Walk-in Patient', ticket: '#T-' + walkInCounter, status: 'waiting', wait: '~ ' + (queue.length * 12 + 12) + ' Min.', note: 'Vor Ort' };
+            queue.push(entry);
+            localStorage.setItem('wl_b2b_queue', JSON.stringify(queue));
+            document.getElementById('statWaiting').textContent = queue.length;
+            renderQueue();
+            showToast('Walk-in Patient hinzugefügt.', 'fa-user-plus', 'text-praxis-300');
+        }
+
+        // ── Logout ─────────────────────────────────────────────────────────────
+        function logout() {
+            fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+            localStorage.removeItem('wl_token');
+            localStorage.removeItem('wl_user');
+            window.location.replace('/login.html');
+        }
+
+        // ── Calendar ───────────────────────────────────────────────────────────
+        const DAY_NAMES = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+        const DAY_FULL  = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+        const MONTHS    = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+        // Morning slots 08:00–12:30, afternoon 15:00–17:30
+        const MORNING_SLOTS = [];
+        for (let h = 8; h <= 12; h++) for (let m = 0; m < 60; m += 30) {
+            if (h === 12 && m > 30) break;
+            MORNING_SLOTS.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+        }
+        const AFTERNOON_SLOTS = ['15:00','15:30','16:00','16:30','17:00','17:30'];
+
+        // Default to the week that contains tomorrow (so slots align with patient's bookable range)
+        function initialWeekOffset() {
+            const now = new Date();
+            const dow = now.getDay(); // 0=Su,6=Sa
+            // If today is Friday or later in the week, jump to next week so all 5 days are bookable
+            return (dow >= 5 || dow === 0) ? 1 : 0;
+        }
+        let calendarWeekOffset = initialWeekOffset();
+
+        function getWeekMonday(offset) {
+            const now = new Date();
+            const dow = now.getDay();
+            const monday = new Date(now);
+            monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
+            monday.setHours(0,0,0,0);
+            return monday;
+        }
+
+        function renderCalendar() {
+            const monday = getWeekMonday(calendarWeekOffset);
+            const weekDays = Array.from({length:5}, (_,i) => { const d=new Date(monday); d.setDate(monday.getDate()+i); return d; });
+
+            // Week range label
+            const fri = weekDays[4];
+            document.getElementById('weekRangeLabel').textContent =
+                `${monday.getDate()}.${monday.getMonth()+1}. – ${fri.getDate()}.${fri.getMonth()+1}.`;
+
+            // Load confirmed appointments for this practice
+            const all = JSON.parse(localStorage.getItem('wl_all_requests') || '[]');
+            const confirmed = all.filter(r =>
+                (r.docId === PRACTICE_DOC_ID || r.docName === PRACTICE_DOC_NAME) && r.status === 'confirmed'
+            );
+
+            // Map: "colIdx-HH:MM" -> appointment
+            const apptMap = {};
+            confirmed.forEach(r => {
+                // r.time format: "Mo 06.10. 08:00 Uhr"
+                const parts = r.time.split(' ');
+                if (parts.length < 3) return;
+                const dayAbbr = parts[0]; // Mo, Di ...
+                const timeStr  = parts[2]; // 08:00
+                weekDays.forEach((d, colIdx) => {
+                    if (DAY_NAMES[d.getDay()] === dayAbbr) {
+                        apptMap[`${colIdx}-${timeStr}`] = r;
+                    }
+                });
+            });
+
+            // Today / past helpers
+            const now = new Date();
+            const today = new Date(now);
+            today.setHours(0,0,0,0);
+            const todayStr = today.toDateString();
+
+            // Build HTML
+            const COL = 'flex-1 min-w-0';
+
+            // Header row
+            let html = `<div class="flex border-b border-praxis-100 bg-praxis-50/60">`;
+            html += `<div style="width:40px;min-width:40px" class="py-2"></div>`;
+            weekDays.forEach(d => {
+                const isPast = d < today;
+                const isToday = d.toDateString() === todayStr;
+                html += `<div class="${COL} py-2 text-center ${isPast ? 'opacity-35' : ''}">
+                    <p class="text-[9px] font-extrabold uppercase tracking-wide ${isToday ? 'text-praxis-700' : 'text-slate-400'}">${DAY_NAMES[d.getDay()]}</p>
+                    <p class="text-sm font-black leading-none mt-0.5 ${isToday ? 'text-white bg-praxis-700 rounded-full w-6 h-6 flex items-center justify-center mx-auto' : 'text-slate-700'}">${d.getDate()}</p>
+                </div>`;
+            });
+            html += `</div>`;
+
+            // Morning slots
+            html += renderSlotGroup(MORNING_SLOTS, weekDays, apptMap, false, today, now);
+
+            // Divider
+            html += `<div class="flex items-center gap-2 px-2 py-1 bg-praxis-50 border-y border-praxis-100">
+                <div style="width:40px;min-width:40px"></div>
+                <p class="text-[9px] font-extrabold text-praxis-400 uppercase tracking-wider">Nachmittag · Mo & Mi</p>
+            </div>`;
+
+            // Afternoon slots
+            html += renderSlotGroup(AFTERNOON_SLOTS, weekDays, apptMap, true, today, now);
+
+            document.getElementById('calendarGrid').innerHTML = html;
+        }
+
+        function renderSlotGroup(slots, weekDays, apptMap, isAfternoon, today, now) {
+            const COL = 'flex-1 min-w-0';
+            const todayStr = today.toDateString();
+            let html = '';
+            slots.forEach((timeStr, rowIdx) => {
+                const isLastRow = rowIdx === slots.length - 1;
+                html += `<div class="flex ${isLastRow ? '' : 'border-b border-praxis-50'}" style="min-height:36px">`;
+                html += `<div style="width:40px;min-width:40px" class="flex items-center justify-center border-r border-praxis-100 shrink-0">
+                    <span class="text-[9px] font-bold text-slate-400">${timeStr}</span>
+                </div>`;
+                weekDays.forEach((d, colIdx) => {
+                    const dow = d.getDay();
+                    const isPastDay = d < today;
+                    const isToday = d.toDateString() === todayStr;
+                    // Vergangene Zeitslots heute: Stunde des Slots < aktuelle Stunde
+                    const [slotH, slotM] = timeStr.split(':').map(Number);
+                    const slotPastToday = isToday && (now.getHours() > slotH || (now.getHours() === slotH && now.getMinutes() >= slotM));
+                    const isSlotPast = isPastDay || slotPastToday;
+                    // Nachmittag nur Mo(1) und Mi(3)
+                    const isUnavailable = isAfternoon && dow !== 1 && dow !== 3;
+                    const key = `${colIdx}-${timeStr}`;
+                    const appt = apptMap[key];
+                    const isEvenCol = colIdx % 2 === 0;
+
+                    if (isUnavailable) {
+                        // Kein Öffnungszeitfenster — leer + gestreift
+                        html += `<div class="${COL} ${isEvenCol ? 'bg-slate-50/50' : ''} border-r border-praxis-50 last:border-r-0 cursor-not-allowed"></div>`;
+                    } else if (isSlotPast) {
+                        if (appt) {
+                            // Vergangener Termin: Name noch sichtbar, aber ausgegraut
+                            const name = (appt.patientName ?? 'Patient').split(' ')[0];
+                            const apptIdSafe = String(appt.id).replace(/'/g, '');
+                            html += `<div class="${COL} border-r border-praxis-50 last:border-r-0 p-0.5 opacity-45 cursor-pointer" onclick="openAkte('${apptIdSafe}')">
+                                <div class="h-full bg-slate-400 rounded-lg px-1 py-0.5 flex flex-col justify-center min-h-[32px]">
+                                    <p class="text-[9px] font-black text-white leading-tight truncate">${name}</p>
+                                    <p class="text-[8px] text-slate-200 font-semibold leading-tight truncate">${appt.insurance ?? ''}</p>
+                                </div>
+                            </div>`;
+                        } else {
+                            // Vergangener leerer Slot: ausgegraut, nicht klickbar
+                            html += `<div class="${COL} bg-slate-100/70 border-r border-praxis-50 last:border-r-0 cursor-not-allowed opacity-40"></div>`;
+                        }
+                    } else if (appt) {
+                        // Zukünftiger Termin: normal grün
+                        const name = (appt.patientName ?? 'Patient').split(' ')[0];
+                        const apptIdSafe = String(appt.id).replace(/'/g, '');
+                        html += `<div class="${COL} border-r border-praxis-50 last:border-r-0 p-0.5 cursor-pointer" onclick="openAkte('${apptIdSafe}')">
+                            <div class="h-full bg-emerald-600 hover:bg-emerald-700 transition rounded-lg px-1 py-0.5 flex flex-col justify-center min-h-[32px]">
+                                <p class="text-[9px] font-black text-white leading-tight truncate">${name}</p>
+                                <p class="text-[8px] text-emerald-200 font-semibold leading-tight truncate">${appt.insurance ?? ''}</p>
+                            </div>
+                        </div>`;
+                    } else {
+                        // Freier zukünftiger Slot
+                        const dayLabel = DAY_NAMES[d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.';
+                        const fullLabel = `${dayLabel} ${timeStr} Uhr`;
+                        html += `<div class="${COL} ${isEvenCol ? 'bg-slate-50/30' : ''} border-r border-praxis-50 last:border-r-0 hover:bg-praxis-100 transition cursor-pointer group" onclick="openAddApptModal('${fullLabel}')">
+                            <div class="h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                                <i class="fa-solid fa-plus text-[8px] text-praxis-400"></i>
+                            </div>
+                        </div>`;
+                    }
+                });
+                html += `</div>`;
+            });
+            return html;
+        }
+
+        function changeWeek(dir) {
+            calendarWeekOffset += dir;
+            renderCalendar();
+        }
+
+        // ── Overview helpers ───────────────────────────────────────────────────
+        function renderOverview() {
+            const now = new Date();
+            const h = now.getHours();
+
+            // Greeting + date
+            const greet = h < 12 ? 'Guten Morgen' : h < 18 ? 'Guten Tag' : 'Guten Abend';
+            const greetEl = document.getElementById('greetingText');
+            if (greetEl) greetEl.textContent = `${greet}, Dr. Holzer`;
+            const dateEl = document.getElementById('todayDate');
+            if (dateEl) dateEl.textContent = `${DAY_FULL[now.getDay()]}, ${now.getDate()}. ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+
+            // Open status
+            const dow = now.getDay();
+            const morningOpen = dow >= 1 && dow <= 5 && h >= 8 && h < 13;
+            const afternoonOpen = (dow === 1 || dow === 3) && h >= 15 && h < 18;
+            const isOpen = morningOpen || afternoonOpen;
+            window._praxisOpen = isOpen;
+            const badge = document.getElementById('openStatusBadge');
+            if (badge) {
+                badge.textContent = isOpen ? '● Geöffnet' : '● Geschlossen';
+                badge.className = isOpen
+                    ? 'text-[11px] font-extrabold px-3 py-1.5 rounded-xl border bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'text-[11px] font-extrabold px-3 py-1.5 rounded-xl border bg-slate-100 text-slate-500 border-slate-200';
+            }
+
+            // Walk-in Button aktivieren/deaktivieren je nach Öffnungsstatus
+            const walkInBtn = document.getElementById('walkInBtn');
+            if (walkInBtn) {
+                walkInBtn.disabled = !isOpen;
+                walkInBtn.className = isOpen
+                    ? 'bg-praxis-700 hover:bg-praxis-800 text-white text-xs font-extrabold px-3 py-2 rounded-xl flex items-center gap-1.5 transition'
+                    : 'bg-slate-200 text-slate-400 text-xs font-extrabold px-3 py-2 rounded-xl flex items-center gap-1.5 cursor-not-allowed';
+            }
+
+            // Geschlossen-Banner in Warteschlange
+            const closedBanner = document.getElementById('closedQueueBanner');
+            if (closedBanner) closedBanner.classList.toggle('hidden', isOpen);
+
+            // Stats
+            const all = JSON.parse(localStorage.getItem('wl_all_requests') || '[]');
+            const mine = all.filter(r => r.docId === PRACTICE_DOC_ID || r.docName === PRACTICE_DOC_NAME);
+            const confirmed = mine.filter(r => r.status === 'confirmed');
+            const pending   = mine.filter(r => r.status === 'pending');
+
+            document.getElementById('statWaiting').textContent = queue.length;
+            document.getElementById('statRequests').textContent = mine.length;
+            const sc = document.getElementById('statConfirmed');
+            if (sc) sc.textContent = confirmed.length;
+
+            // Pending badge + banner
+            const dot    = document.getElementById('pendingDot');
+            const banner = document.getElementById('pendingBanner');
+            const bText  = document.getElementById('pendingBannerText');
+            if (dot)    dot.classList.toggle('hidden', pending.length === 0);
+            if (banner) banner.classList.toggle('hidden', pending.length === 0);
+            if (bText && pending.length > 0)
+                bText.textContent = pending.length === 1 ? '1 neue Anfrage' : `${pending.length} neue Anfragen`;
+
+            // Calendar
+            renderCalendar();
+        }
+
+        // ── Manual appointment add ─────────────────────────────────────────────
+        let addApptTargetTime = '';
+
+        function openAddApptModal(timeLabel) {
+            addApptTargetTime = timeLabel;
+            document.getElementById('addApptTimeLabel').textContent = timeLabel;
+            document.getElementById('addApptName').value = '';
+            document.getElementById('addApptInsurance').value = '';
+            document.getElementById('addApptModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('addApptName').focus(), 50);
+        }
+
+        function closeAddApptModal() {
+            document.getElementById('addApptModal').classList.add('hidden');
+        }
+
+        function saveManualAppt() {
+            const name = document.getElementById('addApptName').value.trim();
+            const ins  = document.getElementById('addApptInsurance').value.trim();
+            if (!name) { document.getElementById('addApptName').focus(); return; }
+
+            const all = JSON.parse(localStorage.getItem('wl_all_requests') || '[]');
+            all.push({
+                id: 'manual-' + Date.now(),
+                docId: PRACTICE_DOC_ID,
+                docName: PRACTICE_DOC_NAME,
+                patientName: name,
+                insurance: ins || 'Keine Angabe',
+                time: addApptTargetTime,
+                note: '',
+                status: 'confirmed',
+                manual: true
+            });
+            localStorage.setItem('wl_all_requests', JSON.stringify(all));
+            closeAddApptModal();
+            renderOverview();
+        }
+
+        // ── Patientenakte ──────────────────────────────────────────────────────
+        function openAkte(apptId) {
+            const all = JSON.parse(localStorage.getItem('wl_all_requests') || '[]');
+            const appt = all.find(r => String(r.id) === String(apptId));
+            if (!appt) return;
+
+            const mine = all.filter(r =>
+                (r.docId === PRACTICE_DOC_ID || r.docName === PRACTICE_DOC_NAME) &&
+                r.patientName === appt.patientName
+            );
+            const confirmed = mine.filter(r => r.status === 'confirmed');
+            const isNew = confirmed.length <= 1; // only this appointment = new patient
+
+            // Header
+            document.getElementById('akteName').textContent = appt.patientName ?? 'Unbekannt';
+            document.getElementById('akteInsurance').textContent = appt.insurance ?? '—';
+            document.getElementById('akteTime').textContent = appt.time ?? '—';
+            document.getElementById('akteManual').classList.toggle('hidden', !appt.manual);
+
+            // New / returning badge
+            const badge = document.getElementById('akteStatusBadge');
+            if (isNew) {
+                badge.textContent = '★ Neuer Patient';
+                badge.className = 'inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1 rounded-xl bg-amber-50 text-amber-700 border border-amber-200';
+            } else {
+                badge.textContent = `↩ Bereits ${confirmed.length - 1}× hier`;
+                badge.className = 'inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1 rounded-xl bg-praxis-50 text-praxis-700 border border-praxis-200';
+            }
+
+            // History
+            const historyEl = document.getElementById('akteHistory');
+            const prev = mine.filter(r => r.status === 'confirmed' && String(r.id) !== String(apptId));
+            if (prev.length === 0) {
+                historyEl.innerHTML = '<p class="text-[11px] text-slate-400 italic">Keine früheren Termine gefunden.</p>';
+            } else {
+                historyEl.innerHTML = prev.slice(0, 5).map(r => `
+                    <div class="flex items-center gap-2 py-1.5 border-b border-praxis-50 last:border-0">
+                        <i class="fa-solid fa-calendar-check text-emerald-500 text-[10px] shrink-0"></i>
+                        <span class="text-[11px] font-semibold text-slate-700">${r.time}</span>
+                    </div>`).join('');
+            }
+
+            // Notes / complaints
+            const noteEl = document.getElementById('akteNote');
+            const noteWrap = document.getElementById('akteNoteWrap');
+            const complaint = appt.complaint || appt.note || '';
+            if (complaint) {
+                noteEl.textContent = complaint;
+                noteWrap.classList.remove('hidden');
+            } else {
+                noteWrap.classList.add('hidden');
+            }
+
+            document.getElementById('akteModal').classList.remove('hidden');
+        }
+
+        function closeAkte() {
+            document.getElementById('akteModal').classList.add('hidden');
+        }
+
+        // ── Init ───────────────────────────────────────────────────────────────
+        window.onload = function() {
+            document.getElementById('statWaiting').textContent = queue.length;
+            renderOverview();
+            loadRequests();
+            setInterval(() => { loadRequests(); renderOverview(); }, 5000);
+        };
+    </script>
+
+    <!-- ── PATIENTENAKTE ──────────────────────────────────────────── -->
+    <div id="akteModal" class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center hidden" role="dialog" aria-modal="true">
+        <div onclick="closeAkte()" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm shadow-2xl z-10 pb-safe overflow-hidden">
+            <!-- Colored header band -->
+            <div class="bg-praxis-700 px-5 pt-5 pb-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-user text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <p class="text-white font-black text-base leading-tight" id="akteName"></p>
+                            <p class="text-praxis-200 text-xs font-semibold mt-0.5" id="akteInsurance"></p>
+                        </div>
+                    </div>
+                    <button onclick="closeAkte()" class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-white hover:bg-white/25 transition shrink-0 mt-0.5">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                </div>
+                <div class="flex items-center gap-2 mt-3">
+                    <span id="akteStatusBadge"></span>
+                    <span id="akteManual" class="hidden inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1 rounded-xl bg-white/15 text-white border border-white/20">
+                        <i class="fa-solid fa-pen-to-square text-[9px]"></i> Manuell eingetragen
+                    </span>
+                </div>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <!-- Appointment time -->
+                <div class="flex items-center gap-3 bg-praxis-50 rounded-2xl px-4 py-3">
+                    <i class="fa-solid fa-clock text-praxis-500 text-sm shrink-0"></i>
+                    <div>
+                        <p class="text-[10px] font-extrabold text-praxis-400 uppercase tracking-wide">Terminzeit</p>
+                        <p class="text-sm font-extrabold text-praxis-800" id="akteTime"></p>
+                    </div>
+                </div>
+
+                <!-- Notes / complaints -->
+                <div id="akteNoteWrap" class="hidden">
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide mb-1.5">Notiz / Beschwerden</p>
+                    <div class="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+                        <p class="text-sm text-amber-900 font-medium leading-snug" id="akteNote"></p>
+                    </div>
+                </div>
+
+                <!-- Visit history -->
+                <div>
+                    <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide mb-1.5">Frühere Termine</p>
+                    <div class="bg-slate-50 rounded-2xl px-4 py-2" id="akteHistory"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── TERMIN MANUELL HINZUFÜGEN ──────────────────────────────── -->
+    <div id="addApptModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center hidden" role="dialog" aria-modal="true">
+        <div onclick="closeAddApptModal()" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm shadow-2xl p-6 z-10 pb-safe space-y-4">
+            <!-- Header -->
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-base font-extrabold text-praxis-800">Termin eintragen</h2>
+                    <p id="addApptTimeLabel" class="text-sm text-praxis-500 font-semibold mt-0.5"></p>
+                </div>
+                <button onclick="closeAddApptModal()" class="w-8 h-8 rounded-xl bg-praxis-50 flex items-center justify-center text-praxis-400 hover:text-praxis-700 transition shrink-0">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <!-- Name -->
+            <div class="space-y-1.5">
+                <label class="text-xs font-extrabold text-praxis-700 uppercase tracking-wide">Name des Patienten <span class="text-rose-500">*</span></label>
+                <input id="addApptName" type="text" placeholder="z.B. Maria Müller"
+                    class="w-full border border-praxis-200 rounded-2xl px-4 py-3 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-praxis-400"
+                    onkeydown="if(event.key==='Enter') saveManualAppt()">
+            </div>
+            <!-- Insurance -->
+            <div class="space-y-1.5">
+                <label class="text-xs font-extrabold text-praxis-700 uppercase tracking-wide">Versicherung <span class="font-normal normal-case text-slate-400">(optional)</span></label>
+                <input id="addApptInsurance" type="text" placeholder="z.B. ÖGK, BVAEB, Privat …"
+                    class="w-full border border-praxis-200 rounded-2xl px-4 py-3 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-praxis-400"
+                    onkeydown="if(event.key==='Enter') saveManualAppt()">
+            </div>
+            <!-- Save -->
+            <button onclick="saveManualAppt()" class="w-full bg-praxis-700 hover:bg-praxis-900 text-white font-extrabold py-3 rounded-2xl flex items-center justify-center gap-2 transition text-sm shadow-sm">
+                <i class="fa-solid fa-calendar-plus"></i> Termin speichern
+            </button>
+        </div>
+    </div>
+</body>
+</html>

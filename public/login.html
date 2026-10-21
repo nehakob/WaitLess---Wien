@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WaitLess Wien — Anmelden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        petrol: { 50:'#EDF9FA', 100:'#B8E8E8', 200:'#9ADADA', 500:'#3FA5A0', 600:'#2A8090', 700:'#1E6A7A', 800:'#155A6A', 900:'#0C3845', 950:'#0C3845' }
+                    },
+                    fontFamily: { sans: ['Plus Jakarta Sans','Inter','sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        .bg-pattern {
+            background-color: #0C3845;
+            background-image: radial-gradient(circle at 20% 20%, rgba(30,106,122,0.55) 0%, transparent 55%),
+                              radial-gradient(circle at 80% 80%, rgba(63,165,160,0.35) 0%, transparent 50%),
+                              radial-gradient(circle at 60% 10%, rgba(42,128,144,0.30) 0%, transparent 40%);
+        }
+
+        .card { background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); }
+
+        @keyframes pulseGlow {
+            0%,100% { opacity:.9; transform:scale(1); }
+            50% { opacity:.35; transform:scale(1.15); }
+        }
+        .pulse-dot { animation: pulseGlow 2s infinite ease-in-out; }
+
+        @keyframes slideUp {
+            from { transform:translateY(24px); opacity:0; }
+            to { transform:translateY(0); opacity:1; }
+        }
+        .slide-up { animation: slideUp .45s cubic-bezier(.16,1,.3,1) forwards; }
+
+        .tab-active {
+            background: #1E6A7A;
+            color: white;
+            box-shadow: 0 2px 8px rgba(30,106,122,.35);
+        }
+
+        input:focus { outline: none; box-shadow: 0 0 0 3px rgba(30,106,122,.2); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #1E6A7A, #3FA5A0);
+            transition: filter .15s, transform .1s;
+        }
+        .btn-primary:hover { filter: brightness(1.1); }
+        .btn-primary:active { transform: scale(.98); }
+
+        .error-shake {
+            animation: shake .35s cubic-bezier(.36,.07,.19,.97);
+        }
+        @keyframes shake {
+            10%,90% { transform:translateX(-2px); }
+            20%,80% { transform:translateX(4px); }
+            30%,50%,70% { transform:translateX(-4px); }
+            40%,60% { transform:translateX(4px); }
+        }
+    </style>
+</head>
+<body class="bg-pattern min-h-screen flex flex-col items-center justify-center px-4 py-8">
+
+    <!-- Toast -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden">
+        <div id="toastInner" class="flex items-center gap-3 bg-petrol-950/95 text-white px-4 py-3 rounded-2xl shadow-2xl border border-petrol-700/80 backdrop-blur text-sm font-semibold max-w-sm">
+            <i id="toastIcon" class="fa-solid fa-circle-info text-amber-300 text-base"></i>
+            <span id="toastMsg"></span>
+        </div>
+    </div>
+
+    <div class="w-full max-w-sm slide-up">
+
+        <!-- Logo -->
+        <div class="flex flex-col items-center mb-8">
+            <div class="w-16 h-16 rounded-3xl bg-white/10 border border-white/20 flex items-center justify-center mb-4 shadow-xl">
+                <svg viewBox="0 0 100 100" class="w-10 h-10">
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="#8a99a6" stroke-width="4.5"/>
+                    <line x1="50" y1="16" x2="50" y2="21" stroke="#8a99a6" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="50" y1="79" x2="50" y2="84" stroke="#8a99a6" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="16" y1="50" x2="21" y2="50" stroke="#8a99a6" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="79" y1="50" x2="84" y2="50" stroke="#8a99a6" stroke-width="4" stroke-linecap="round"/>
+                    <path d="M 44 38 H 56 V 44 H 62 V 56 H 56 V 62 H 44 V 56 H 38 V 44 H 44 Z" fill="none" stroke="#1E6A7A" stroke-width="3.5" stroke-linejoin="round"/>
+                    <path d="M 20 62 C 22 32, 48 18, 76 22" fill="none" stroke="#1E6A7A" stroke-width="6" stroke-linecap="round"/>
+                    <path d="M 66 14 L 80 22 L 72 35 Z" fill="#1E6A7A"/>
+                </svg>
+            </div>
+            <div class="flex items-center gap-2">
+                <h1 class="font-black text-3xl text-white tracking-tight">WaitLess</h1>
+                <span class="bg-petrol-600/60 border border-petrol-500/50 text-petrol-100 font-extrabold text-[10px] px-2 py-0.5 rounded uppercase tracking-wider">Wien</span>
+            </div>
+            <p class="text-petrol-200/70 text-sm font-medium mt-1">Smarte Praxis-Wartezeiten & KI-Triage</p>
+
+            <div class="flex items-center gap-1.5 mt-3">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+                <span class="text-emerald-400 text-[11px] font-bold">ÖGK & Wien Live-Register Aktiv</span>
+            </div>
+        </div>
+
+        <!-- Card -->
+        <div class="card rounded-3xl shadow-2xl overflow-hidden border border-white/20">
+
+            <!-- Mode Tabs -->
+            <div class="bg-slate-100 p-1.5 m-4 mb-0 rounded-2xl flex gap-1 border border-slate-200">
+                <button id="tabLogin" onclick="setMode('login')" class="tab-active flex-1 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all">
+                    <i class="fa-solid fa-right-to-bracket"></i> Anmelden
+                </button>
+                <button id="tabRegister" onclick="setMode('register')" class="flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:text-slate-900 flex items-center justify-center gap-2 transition-all">
+                    <i class="fa-solid fa-user-plus"></i> Registrieren
+                </button>
+            </div>
+
+
+            <form id="authForm" onsubmit="handleSubmit(event)" class="p-5 pt-4 space-y-3.5">
+
+                <!-- Register-only fields -->
+                <div id="nameFields" class="hidden grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-xs font-bold text-slate-700 mb-1 block">Vorname</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="firstName" placeholder="Max" class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium text-slate-800 placeholder-slate-400 transition">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-700 mb-1 block">Nachname</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="lastName" placeholder="Mustermann" class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium text-slate-800 placeholder-slate-400 transition">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- E-Mail -->
+                <div>
+                    <label class="text-xs font-bold text-slate-700 mb-1 block">E-Mail Adresse</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="email" id="email" placeholder="max@example.at" required autocomplete="email"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium text-slate-800 placeholder-slate-400 transition">
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div>
+                    <label class="text-xs font-bold text-slate-700 mb-1 block">Passwort</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 text-sm font-medium text-slate-800 placeholder-slate-400 transition">
+                        <button type="button" onclick="togglePw()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs">
+                            <i id="pwEye" class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                    <p id="pwHint" class="hidden text-[11px] text-slate-400 mt-1 font-medium">Mindestens 8 Zeichen</p>
+                </div>
+
+                <!-- Error display -->
+                <div id="errorBox" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold px-3.5 py-2.5 rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation shrink-0"></i>
+                    <span id="errorMsg"></span>
+                </div>
+
+                <!-- Submit button -->
+                <button type="submit" id="submitBtn" class="btn-primary w-full py-3 rounded-2xl text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg mt-1">
+                    <i id="submitIcon" class="fa-solid fa-right-to-bracket"></i>
+                    <span id="submitText">Jetzt anmelden</span>
+                </button>
+
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-6 flex items-center justify-center gap-3 text-[11px] text-petrol-300/60 font-semibold">
+            <span class="flex items-center gap-1"><i class="fa-solid fa-shield-halved text-emerald-500/70"></i> DSGVO Konform</span>
+            <span class="text-petrol-600/40">•</span>
+            <span>Med-G Konform</span>
+            <span class="text-petrol-600/40">•</span>
+            <span>Wien 2026</span>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'login';
+        const currentRole = 'patient';
+
+        function setMode(mode) {
+            currentMode = mode;
+            const isRegister = mode === 'register';
+
+            document.getElementById('nameFields').classList.toggle('hidden', !isRegister);
+            document.getElementById('pwHint').classList.toggle('hidden', !isRegister);
+
+            document.getElementById('submitText').textContent = isRegister ? 'Jetzt registrieren' : 'Jetzt anmelden';
+            document.getElementById('submitIcon').className = isRegister ? 'fa-solid fa-user-plus' : 'fa-solid fa-right-to-bracket';
+
+            document.getElementById('password').autocomplete = isRegister ? 'new-password' : 'current-password';
+
+            const tabLogin = document.getElementById('tabLogin');
+            const tabReg = document.getElementById('tabRegister');
+            if (isRegister) {
+                tabLogin.className = 'flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:text-slate-900 flex items-center justify-center gap-2 transition-all';
+                tabReg.className = 'tab-active flex-1 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all';
+            } else {
+                tabLogin.className = 'tab-active flex-1 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all';
+                tabReg.className = 'flex-1 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:text-slate-900 flex items-center justify-center gap-2 transition-all';
+            }
+
+            clearError();
+        }
+
+
+        function togglePw() {
+            const pw = document.getElementById('password');
+            const eye = document.getElementById('pwEye');
+            if (pw.type === 'password') {
+                pw.type = 'text';
+                eye.className = 'fa-solid fa-eye-slash';
+            } else {
+                pw.type = 'password';
+                eye.className = 'fa-solid fa-eye';
+            }
+        }
+
+        function showError(msg) {
+            const box = document.getElementById('errorBox');
+            document.getElementById('errorMsg').textContent = msg;
+            box.classList.remove('hidden');
+            box.classList.add('error-shake');
+            setTimeout(() => box.classList.remove('error-shake'), 400);
+        }
+
+        function clearError() {
+            document.getElementById('errorBox').classList.add('hidden');
+        }
+
+        function showToast(msg, type = 'info') {
+            const toast = document.getElementById('toast');
+            const inner = document.getElementById('toastInner');
+            const icon = document.getElementById('toastIcon');
+            document.getElementById('toastMsg').textContent = msg;
+
+            icon.className = type === 'success'
+                ? 'fa-solid fa-circle-check text-emerald-400 text-base'
+                : type === 'error'
+                ? 'fa-solid fa-circle-exclamation text-rose-400 text-base'
+                : 'fa-solid fa-circle-info text-amber-300 text-base';
+
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3500);
+        }
+
+        function setLoading(loading) {
+            const btn = document.getElementById('submitBtn');
+            const icon = document.getElementById('submitIcon');
+            const text = document.getElementById('submitText');
+
+            if (loading) {
+                btn.disabled = true;
+                btn.classList.add('opacity-70');
+                icon.className = 'fa-solid fa-spinner fa-spin';
+                text.textContent = 'Bitte warten…';
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('opacity-70');
+                icon.className = currentMode === 'register' ? 'fa-solid fa-user-plus' : 'fa-solid fa-right-to-bracket';
+                text.textContent = currentMode === 'register' ? 'Jetzt registrieren' : 'Jetzt anmelden';
+            }
+        }
+
+        function fillDemo(email, pw) {
+            document.getElementById('email').value = email;
+            document.getElementById('password').value = pw;
+            setMode('login');
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+            clearError();
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                showError('Bitte E-Mail und Passwort eingeben.');
+                return;
+            }
+
+            if (currentMode === 'register') {
+                const firstName = document.getElementById('firstName').value.trim();
+                const lastName = document.getElementById('lastName').value.trim();
+
+                if (!firstName || !lastName) {
+                    showError('Vor- und Nachname sind erforderlich.');
+                    return;
+                }
+                if (password.length < 8) {
+                    showError('Passwort muss mindestens 8 Zeichen haben.');
+                    return;
+                }
+
+                setLoading(true);
+                try {
+                    const res = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password, firstName, lastName, role: 'patient' })
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        showError(data.error || 'Registrierung fehlgeschlagen.');
+                        return;
+                    }
+
+                    showToast('Registrierung erfolgreich! Jetzt anmelden.', 'success');
+                    setMode('login');
+                    document.getElementById('email').value = email;
+                    document.getElementById('password').value = '';
+                } catch {
+                    showError('Netzwerkfehler. Server erreichbar?');
+                } finally {
+                    setLoading(false);
+                }
+
+            } else {
+                setLoading(true);
+                try {
+                    const res = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ email, password })
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        showError(data.error || 'Anmeldung fehlgeschlagen.');
+                        return;
+                    }
+
+                    // Store token for API calls from the portal pages
+                    localStorage.setItem('wl_token', data.token);
+                    localStorage.setItem('wl_user', JSON.stringify(data.user));
+
+                    showToast(`Willkommen, ${data.user.firstName}!`, 'success');
+
+                    setTimeout(() => {
+                        if (data.user.role === 'practice') {
+                            window.location.href = '/b2b.html';
+                        } else {
+                            window.location.href = '/portal.html';
+                        }
+                    }, 700);
+                } catch {
+                    showError('Netzwerkfehler. Ist der Server gestartet?');
+                } finally {
+                    setLoading(false);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
